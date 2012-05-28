@@ -1,0 +1,7 @@
+syntax: glob
+
+*.pyc
+*pip-delete-this-directory.txt
+build/*
+.idea/*
+gmusicapi.log

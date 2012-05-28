@@ -1,0 +1,10 @@
+setup.cfg
+setup.py
+rhythmbox_gmusic.egg-info/PKG-INFO
+rhythmbox_gmusic.egg-info/SOURCES.txt
+rhythmbox_gmusic.egg-info/dependency_links.txt
+rhythmbox_gmusic.egg-info/entry_points.txt
+rhythmbox_gmusic.egg-info/not-zip-safe
+rhythmbox_gmusic.egg-info/requires.txt
+rhythmbox_gmusic.egg-info/top_level.txt
+rhythmboxgmusic/__init__.py

@@ -1,8 +1,10 @@
 from gi.repository import GObject, Peas, Gtk, GConf, RB
 from gmusicapi.api import Api
+from gettext import lgettext as _
 import gettext
 import rb
-gettext.install('rhythmbox', RB.locale_dir())
+gettext.bindtextdomain("rhythmbox-gmusic", "/usr/share/locale")
+gettext.textdomain("rhythmbox-gmusic")
 api = Api()
 settings = GConf.Client.get_default()
 
@@ -23,7 +25,7 @@ class GooglePlayMusic(GObject.Object, Peas.Activatable):
         icon = rb.try_load_icon(theme, "media-playback-start", width, 0)
         self.source = GObject.new(
             GPlaySource, shell=shell, 
-            name=_("Google Music"),
+            name="Google Music",
             query_model=model,
             plugin=self,
             pixbuf=icon,
@@ -33,7 +35,6 @@ class GooglePlayMusic(GObject.Object, Peas.Activatable):
         shell.append_display_page(self.source, group)
 
     def do_deactivate(self):
-        print "deactivating sample python plugin"
         self.source.delete_thyself()
         self.source = None
 
@@ -50,15 +51,18 @@ gentry = GEntry()
 
 class AuthDialog(Gtk.Dialog):
     def __init__(self):
-        Gtk.Dialog.__init__(self, 'Google Play authorisation', None, 0, (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-             Gtk.STOCK_OK, Gtk.ResponseType.OK))
-        top_label = Gtk.Label('You need to authenticate in google play')
-        login_label = Gtk.Label("Login:")
+        Gtk.Dialog.__init__(self, 
+            _('Your Google account credentials'), None, 0, (
+                Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                Gtk.STOCK_OK, Gtk.ResponseType.OK,
+        ))
+        top_label = Gtk.Label(_('Please enter your Google account credentials'))
+        login_label = Gtk.Label(_("Login:"))
         self.login_input = Gtk.Entry()
         login_box = Gtk.HBox()
         login_box.add(login_label)
         login_box.add(self.login_input)
-        password_label = Gtk.Label("Password:")
+        password_label = Gtk.Label(_("Password:"))
         self.password_input = Gtk.Entry()
         self.password_input.set_visibility(False)
         password_box = Gtk.HBox()
@@ -104,8 +108,10 @@ class GBaseSource(RB.Source):
         if self.login():
             self.init_authenticated()
         else:
-            label = Gtk.Label("This plugin request authoristaion")
-            auth_btn = Gtk.Button("Authenticate")
+            label = Gtk.Label(
+                _("This plugin requires you to authenticate to Google Play"),
+            )
+            auth_btn = Gtk.Button(_("Click here to login"))
             auth_btn.connect('clicked', self.auth)
             hbox = Gtk.HBox()
             hbox.add(label)
@@ -123,12 +129,15 @@ class GBaseSource(RB.Source):
             self.vbox.remove(self.auth_box)
         shell = self.props.shell        
         for song in self.get_songs():
-            entry = RB.RhythmDBEntry.new(shell.props.db, gentry, getattr(self, 'id', '0') + '/' + song['id'])
-            shell.props.db.entry_set(entry, RB.RhythmDBPropType.TITLE, song['title'].encode('utf8'))
-            shell.props.db.entry_set(entry, RB.RhythmDBPropType.DURATION, int(song['durationMillis']) / 1000) 
-            shell.props.db.entry_set(entry, RB.RhythmDBPropType.ARTIST, song['artist'].encode('utf8'))
-            shell.props.db.entry_set(entry, RB.RhythmDBPropType.ALBUM, song['album'].encode('utf8'))
-            self.props.query_model.add_entry(entry, -1)
+            try:
+                entry = RB.RhythmDBEntry.new(shell.props.db, gentry, getattr(self, 'id', '0') + '/' + song['id'])
+                shell.props.db.entry_set(entry, RB.RhythmDBPropType.TITLE, song['title'].encode('utf8'))
+                shell.props.db.entry_set(entry, RB.RhythmDBPropType.DURATION, int(song['durationMillis']) / 1000) 
+                shell.props.db.entry_set(entry, RB.RhythmDBPropType.ARTIST, song['artist'].encode('utf8'))
+                shell.props.db.entry_set(entry, RB.RhythmDBPropType.ALBUM, song['album'].encode('utf8'))
+                self.props.query_model.add_entry(entry, -1)
+            except TypeError:  # Already in db
+                pass
         shell.props.db.commit()
         self.songs_view.set_model(self.props.query_model)
 

@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import sys, os
 
-version = '1.0'
+version = '2.0'
 
 setup(name='rhythmbox-gmusic',
       version=version,
@@ -25,5 +25,6 @@ setup(name='rhythmbox-gmusic',
       """,
       data_files=[
         ('/usr/lib/rhythmbox/plugins/googleplaymusic', ['googleplaymusic.plugin']),
+        ('/usr/share/locale/ru/LC_MESSAGES/', ['po/ru/rhythmbox-gmusic.po']),
       ]
       )

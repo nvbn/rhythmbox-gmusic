@@ -87,6 +87,9 @@ class GBaseSource(RB.Source):
             is_drag_dest=False,
         )
         self.songs_view.append_column(
+            RB.EntryViewColumn.TRACK_NUMBER, True,
+        )
+        self.songs_view.append_column(
             RB.EntryViewColumn.TITLE, True,
         )
         self.songs_view.append_column(
@@ -135,6 +138,7 @@ class GBaseSource(RB.Source):
                 shell.props.db.entry_set(entry, RB.RhythmDBPropType.DURATION, int(song['durationMillis']) / 1000) 
                 shell.props.db.entry_set(entry, RB.RhythmDBPropType.ARTIST, song['artist'].encode('utf8'))
                 shell.props.db.entry_set(entry, RB.RhythmDBPropType.ALBUM, song['album'].encode('utf8'))
+                shell.props.db.entry_set(entry, RB.RhythmDBPropType.TRACK_NUMBER, int(song['track']))
                 self.props.query_model.add_entry(entry, -1)
             except TypeError:  # Already in db
                 pass

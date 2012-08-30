@@ -1,4 +1,4 @@
-from gi.repository import GObject, Peas, Gtk, GConf, RB
+from gi.repository import GObject, Peas, Gtk, GConf, RB, GLib
 from gmusicapi.api import Api
 from gettext import lgettext as _
 import gettext
@@ -7,6 +7,7 @@ gettext.bindtextdomain("rhythmbox-gmusic", "/usr/share/locale")
 gettext.textdomain("rhythmbox-gmusic")
 api = Api()
 settings = GConf.Client.get_default()
+urls_cache = {}
 
 
 class GooglePlayMusic(GObject.Object, Peas.Activatable):
@@ -42,7 +43,9 @@ class GooglePlayMusic(GObject.Object, Peas.Activatable):
 class GEntry(RB.RhythmDBEntryType):
     def do_get_playback_uri(self, entry):
         id = entry.dup_string(RB.RhythmDBPropType.LOCATION).split('/')[1]
-        return api.get_stream_url(id)
+        if not id in urls_cache:
+            urls_cache[id] = api.get_stream_url(id)
+        return urls_cache[id]
 
     def do_can_sync_metadata(self, entry):
         return True
@@ -130,6 +133,9 @@ class GBaseSource(RB.Source):
     def init_authenticated(self):
         if hasattr(self, 'auth_box'):
             self.vbox.remove(self.auth_box)
+        GLib.idle_add(self.init_songs)
+
+    def init_songs(self):
         shell = self.props.shell        
         for song in self.get_songs():
             try:
@@ -182,7 +188,10 @@ class GPlaySource(GBaseSource):
     def init_authenticated(self):
         GBaseSource.init_authenticated(self)
         self.playlists = []
-        playlists = api.get_all_playlist_ids()
+        try:
+            playlists = api.get_all_playlist_ids()
+        except KeyError:
+            playlists = {}
         user, instant = playlists.get('user', {}), playlists.get('instant', {})
         shell = self.props.shell 
         db = shell.props.db

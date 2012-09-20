@@ -7,7 +7,6 @@ gettext.bindtextdomain("rhythmbox-gmusic", "/usr/share/locale")
 gettext.textdomain("rhythmbox-gmusic")
 api = Api()
 settings = GConf.Client.get_default()
-urls_cache = {}
 
 
 class GooglePlayMusic(GObject.Object, Peas.Activatable):
@@ -43,9 +42,7 @@ class GooglePlayMusic(GObject.Object, Peas.Activatable):
 class GEntry(RB.RhythmDBEntryType):
     def do_get_playback_uri(self, entry):
         id = entry.dup_string(RB.RhythmDBPropType.LOCATION).split('/')[1]
-        if not id in urls_cache:
-            urls_cache[id] = api.get_stream_url(id)
-        return urls_cache[id]
+        return api.get_stream_url(id)
 
     def do_can_sync_metadata(self, entry):
         return True

@@ -16,8 +16,9 @@ For Fedora users, installation via PIP::
     sudo yum install python-pip git
     sudo pip-python install git+https://github.com/nvbn/rhythmbox-gmusic.git#rhythmbox-gmusic
 
-The gmusicapi Python package is needed for the plugin to work. You can install it with:
-``sudo apt-get install python-pip``
-``sudo pip install gmusicapi``
+The gmusicapi Python package is needed for the plugin to work. You can install it with::
+
+    sudo apt-get install python-pip
+    sudo pip install gmusicapi
 
 Developers can clone this repository and install via ``setup.py``

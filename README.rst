@@ -5,12 +5,15 @@ Plugin for playing music from Google Play Music in Rhythmbox.
 
 Installation
 ============
-For ubuntu user `ppa <https://launchpad.net/~nvbn-rm/+archive/ppa>`_:
+For Ubuntu users, `ppa <https://launchpad.net/~nvbn-rm/+archive/ppa>`_::
 
-``add-apt-repository ppa:nvbn-rm/ppa``
+    sudo add-apt-repository ppa:nvbn-rm/ppa
+    sudo apt-get update
+    sudo apt-get install rhythmbox-gmusic
 
-``apt-get update``
+For Fedora users, installation via PIP::
 
-``apt-get install rhythmbox-gmusic`` 
+    sudo yum install python-pip git
+    sudo pip-python install git+https://github.com/nvbn/rhythmbox-gmusic.git#rhythmbox-gmusic
 
 Developers can clone this repository and install via ``setup.py``

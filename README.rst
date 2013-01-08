@@ -13,4 +13,8 @@ For ubuntu user `ppa <https://launchpad.net/~nvbn-rm/+archive/ppa>`_:
 
 ``apt-get install rhythmbox-gmusic`` 
 
+The gmusicapi Python package is needed for the plugin to work. You can install it with:
+``sudo apt-get install python-pip``
+``sudo pip install gmusicapi``
+
 Developers can clone this repository and install via ``setup.py``

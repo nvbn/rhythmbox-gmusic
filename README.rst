@@ -20,12 +20,16 @@ The Rhythmbox plugin requires the gmusicapi Python package. You can install it w
 Ubuntu Installation via PIP
 ===========================
 
+From the shell::
+
     sudo apt-get install python-pip git-core
     sudo pip install git+https://github.com/nvbn/rhythmbox-gmusic.git#egg=rhythmbox-gmusic
 
 
 Fedora Installation via PIP
 ===========================
+
+From the shell::
 
     sudo yum install python-pip git
     sudo pip-python install git+https://github.com/nvbn/rhythmbox-gmusic.git#egg=rhythmbox-gmusic

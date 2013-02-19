@@ -1,3 +1,4 @@
+README.rst
 setup.cfg
 setup.py
 rhythmbox_gmusic.egg-info/PKG-INFO

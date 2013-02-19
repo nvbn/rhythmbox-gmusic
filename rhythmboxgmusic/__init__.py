@@ -24,14 +24,14 @@ class GooglePlayMusic(GObject.Object, Peas.Activatable):
         what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.LARGE_TOOLBAR)
         icon = rb.try_load_icon(theme, "media-playback-start", width, 0)
         self.source = GObject.new(
-            GPlaySource, shell=shell, 
+            GPlaySource, shell=shell,
             name="Google Music",
             query_model=model,
             plugin=self,
             pixbuf=icon,
         )
         self.source.setup()
-        group = RB.DisplayPageGroup.get_by_id ("library")
+        group = RB.DisplayPageGroup.get_by_id("library")
         shell.append_display_page(self.source, group)
 
     def do_deactivate(self):
@@ -51,7 +51,7 @@ gentry = GEntry()
 
 class AuthDialog(Gtk.Dialog):
     def __init__(self):
-        Gtk.Dialog.__init__(self, 
+        Gtk.Dialog.__init__(self,
             _('Your Google account credentials'), None, 0, (
                 Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                 Gtk.STOCK_OK, Gtk.ResponseType.OK,
@@ -133,15 +133,33 @@ class GBaseSource(RB.Source):
         GLib.idle_add(self.init_songs)
 
     def init_songs(self):
-        shell = self.props.shell        
+        shell = self.props.shell
         for song in self.get_songs():
             try:
-                entry = RB.RhythmDBEntry.new(shell.props.db, gentry, getattr(self, 'id', '0') + '/' + song['id'])
-                shell.props.db.entry_set(entry, RB.RhythmDBPropType.TITLE, song['title'].encode('utf8'))
-                shell.props.db.entry_set(entry, RB.RhythmDBPropType.DURATION, int(song['durationMillis']) / 1000) 
-                shell.props.db.entry_set(entry, RB.RhythmDBPropType.ARTIST, song['artist'].encode('utf8'))
-                shell.props.db.entry_set(entry, RB.RhythmDBPropType.ALBUM, song['album'].encode('utf8'))
-                shell.props.db.entry_set(entry, RB.RhythmDBPropType.TRACK_NUMBER, int(song['track']))
+                entry = RB.RhythmDBEntry.new(
+                    shell.props.db, gentry,
+                    getattr(self, 'id', '0') + '/' + song['id'],
+                )
+                shell.props.db.entry_set(
+                    entry, RB.RhythmDBPropType.TITLE,
+                    song['title'].encode('utf8'),
+                )
+                shell.props.db.entry_set(
+                    entry, RB.RhythmDBPropType.DURATION,
+                    int(song['durationMillis']) / 1000,
+                )
+                shell.props.db.entry_set(
+                    entry, RB.RhythmDBPropType.ARTIST,
+                    song['artist'].encode('utf8'),
+                )
+                shell.props.db.entry_set(
+                    entry, RB.RhythmDBPropType.ALBUM,
+                    song['album'].encode('utf8'),
+                )
+                shell.props.db.entry_set(
+                    entry, RB.RhythmDBPropType.TRACK_NUMBER,
+                    int(song['track']),
+                )
                 self.props.query_model.add_entry(entry, -1)
             except TypeError:  # Already in db
                 pass
@@ -151,16 +169,26 @@ class GBaseSource(RB.Source):
     def login(self):
         if api.is_authenticated():
             return True
-        login = settings.get_string('/apps/gnome/rhythmbox/google-play-music/login')
-        password = settings.get_string('/apps/gnome/rhythmbox/google-play-music/password')
+        login = settings.get_string(
+            '/apps/gnome/rhythmbox/google-play-music/login',
+        )
+        password = settings.get_string(
+            '/apps/gnome/rhythmbox/google-play-music/password',
+        )
         return api.login(login, password)
 
     def auth(self, widget):
         dialog = AuthDialog()
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
-            settings.set_string('/apps/gnome/rhythmbox/google-play-music/login', dialog.login_input.get_text())
-            settings.set_string('/apps/gnome/rhythmbox/google-play-music/password', dialog.password_input.get_text())
+            settings.set_string(
+                '/apps/gnome/rhythmbox/google-play-music/login',
+                dialog.login_input.get_text(),
+            )
+            settings.set_string(
+                '/apps/gnome/rhythmbox/google-play-music/password',
+                dialog.password_input.get_text(),
+            )
             if self.login():
                 self.init_authenticated()
         dialog.destroy()
@@ -190,11 +218,14 @@ class GPlaySource(GBaseSource):
         except KeyError:
             playlists = {}
         user, instant = playlists.get('user', {}), playlists.get('instant', {})
-        shell = self.props.shell 
+        shell = self.props.shell
         db = shell.props.db
         for name, id in user.items() + instant.items():
             model = RB.RhythmDBQueryModel.new_empty(db)
-            pl = GObject.new (GPlaylist, shell=shell, name=name.encode('utf8'), query_model=model)
+            pl = GObject.new(
+                GPlaylist, shell=shell, name=name.encode('utf8'),
+                query_model=model,
+            )
             pl.setup(id)
             shell.append_display_page(pl, self)
 

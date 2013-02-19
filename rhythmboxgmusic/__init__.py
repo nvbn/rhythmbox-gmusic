@@ -111,7 +111,8 @@ class GBaseSource(RB.Source):
         self.songs_view.connect('entry-activated',
             lambda view, entry: shell.props.shell_player.play_entry(entry, self),
         )
-        self.vbox = Gtk.VBox()
+        self.vbox = Gtk.Paned.new(Gtk.Orientation.VERTICAL)
+
         if self.login():
             self.init_authenticated()
         else:
@@ -127,9 +128,17 @@ class GBaseSource(RB.Source):
             self.vbox = Gtk.VBox()
             self.vbox.pack_start(hbox, False, False, 0)
             self.auth_box = hbox
-        self.vbox.pack_start(self.songs_view, True, True, 0)
+        self.browser = RB.LibraryBrowser.new(shell.props.db, gentry)
+        self.browser.set_model(self.props.query_model, False)
+        self.browser.connect("notify::output-model", self.update_view)
+        self.songs_view.set_model(self.browser.props.output_model)
+        self.vbox.add1(self.browser)
+        self.vbox.add2(self.songs_view)
         self.pack_start(self.vbox, True, True, 0)
         self.show_all()
+
+    def update_view(self, *args):
+        self.songs_view.set_model(self.browser.props.output_model)
 
     def init_authenticated(self):
         if hasattr(self, 'auth_box'):
@@ -168,7 +177,7 @@ class GBaseSource(RB.Source):
             except TypeError:  # Already in db
                 pass
         shell.props.db.commit()
-        self.songs_view.set_model(self.props.query_model)
+        # self.songs_view.set_model(self.props.query_model)
 
     def login(self):
         if api.is_authenticated():
@@ -200,6 +209,7 @@ class GPlaylist(GBaseSource):
         GBaseSource.setup(self)
 
     def get_songs(self):
+        return []
         return api.get_playlist_songs(self.id)
 
 

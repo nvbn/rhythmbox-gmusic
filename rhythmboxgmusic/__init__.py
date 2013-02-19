@@ -130,12 +130,13 @@ class GBaseSource(RB.Source):
             self.auth_box = hbox
 
         self.browser = RB.LibraryBrowser.new(shell.props.db, gentry)
-        self.browser.set_model(self.props.query_model, False)
+        self.browser.set_model(self.props.base_query_model, False)
         self.browser.connect("notify::output-model", self.update_view)
         self.browser.set_size_request(-1, 200)
         self.top_box.pack_start(self.browser, True, True, 0)
 
-        self.songs_view.set_model(self.browser.props.output_model)
+        self.update_view()
+
         self.vbox.add1(self.top_box)
         self.vbox.add2(self.songs_view)
         self.pack_start(self.vbox, True, True, 0)
@@ -143,6 +144,7 @@ class GBaseSource(RB.Source):
 
     def update_view(self, *args):
         self.songs_view.set_model(self.browser.props.output_model)
+        self.set_property('query-model', self.browser.props.output_model)
 
     def init_authenticated(self):
         if hasattr(self, 'auth_box'):
@@ -177,7 +179,7 @@ class GBaseSource(RB.Source):
                     entry, RB.RhythmDBPropType.TRACK_NUMBER,
                     int(song['track']),
                 )
-                self.props.query_model.add_entry(entry, -1)
+                self.props.base_query_model.add_entry(entry, -1)
             except TypeError:  # Already in db
                 pass
         shell.props.db.commit()

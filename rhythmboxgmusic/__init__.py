@@ -9,6 +9,10 @@ api = Api()
 settings = GConf.Client.get_default()
 
 
+LOGIN_KEY = '/apps/gnome/rhythmbox/google-play-music/login'
+PASSWORD_KEY = '/apps/gnome/rhythmbox/google-play-music/password'
+
+
 class GooglePlayMusic(GObject.Object, Peas.Activatable):
     __gtype_name = 'GooglePlayMusicPlugin'
     object = GObject.property(type=GObject.GObject)
@@ -169,26 +173,16 @@ class GBaseSource(RB.Source):
     def login(self):
         if api.is_authenticated():
             return True
-        login = settings.get_string(
-            '/apps/gnome/rhythmbox/google-play-music/login',
-        )
-        password = settings.get_string(
-            '/apps/gnome/rhythmbox/google-play-music/password',
-        )
+        login = settings.get_string(LOGIN_KEY)
+        password = settings.get_string(PASSWORD_KEY)
         return api.login(login, password)
 
     def auth(self, widget):
         dialog = AuthDialog()
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
-            settings.set_string(
-                '/apps/gnome/rhythmbox/google-play-music/login',
-                dialog.login_input.get_text(),
-            )
-            settings.set_string(
-                '/apps/gnome/rhythmbox/google-play-music/password',
-                dialog.password_input.get_text(),
-            )
+            settings.set_string(LOGIN_KEY, dialog.login_input.get_text())
+            settings.set_string(PASSWORD_KEY, dialog.password_input.get_text())
             if self.login():
                 self.init_authenticated()
         dialog.destroy()

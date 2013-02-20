@@ -19,6 +19,7 @@ setup(name='rhythmbox-gmusic',
       zip_safe=False,
       install_requires=[
           'gmusicapi',
+          'futures',
       ],
       entry_points="""
       # -*- Entry points: -*-

@@ -1,4 +1,5 @@
-from gi.repository import GObject, Peas, Gtk, GConf, RB, GLib
+from gi.repository import GObject, Peas, Gtk, GConf, RB
+from concurrent import futures
 from gmusicapi.api import Api
 from gettext import lgettext as _
 import gettext
@@ -6,11 +7,26 @@ import rb
 gettext.bindtextdomain("rhythmbox-gmusic", "/usr/share/locale")
 gettext.textdomain("rhythmbox-gmusic")
 api = Api()
+executor = futures.ProcessPoolExecutor(max_workers=1)
 settings = GConf.Client.get_default()
 
 
 LOGIN_KEY = '/apps/gnome/rhythmbox/google-play-music/login'
 PASSWORD_KEY = '/apps/gnome/rhythmbox/google-play-music/password'
+
+
+def get_songs():
+    try:
+        return api.get_all_songs()
+    except KeyError:
+        return []
+
+
+def get_playlist_songs(id):
+    try:
+        return api.get_playlist_songs(id)
+    except KeyError:
+        return []
 
 
 class GooglePlayMusic(GObject.Object, Peas.Activatable):
@@ -152,11 +168,11 @@ class GBaseSource(RB.Source):
     def init_authenticated(self):
         if hasattr(self, 'auth_box'):
             self.vbox.remove(self.auth_box)
-        GLib.idle_add(self.init_songs)
+        self.load_songs()
 
-    def init_songs(self):
+    def init_songs(self, songs):
         shell = self.props.shell
-        for song in self.get_songs():
+        for song in songs.result():
             try:
                 entry = RB.RhythmDBEntry.new(
                     shell.props.db, gentry,
@@ -191,7 +207,6 @@ class GBaseSource(RB.Source):
             except TypeError:  # Already in db
                 pass
         shell.props.db.commit()
-        # self.songs_view.set_model(self.props.query_model)
 
     def login(self):
         if api.is_authenticated():
@@ -213,8 +228,8 @@ class GBaseSource(RB.Source):
     def do_impl_get_entry_view(self):
         return self.songs_view
 
-    def get_songs(self):
-        raise NotImplemented
+    def load_songs(self):
+        raise NotImplementedError
 
 
 class GPlaylist(GBaseSource):
@@ -222,12 +237,9 @@ class GPlaylist(GBaseSource):
         self.id = id
         GBaseSource.setup(self)
 
-    def get_songs(self):
-        try:
-            return api.get_playlist_songs(self.id)
-        except KeyError:
-            # TODO: check in gmusicapi
-            return []
+    def load_songs(self):
+        future = executor.submit(get_playlist_songs, self.id)
+        future.add_done_callback(self.init_songs)
 
 
 class GPlaySource(GBaseSource):
@@ -250,8 +262,9 @@ class GPlaySource(GBaseSource):
             pl.setup(id)
             shell.append_display_page(pl, self)
 
-    def get_songs(self):
-        return api.get_all_songs()
+    def load_songs(self):
+        future = executor.submit(get_songs)
+        future.add_done_callback(self.init_songs)
 
 
 GObject.type_register(GPlaySource)

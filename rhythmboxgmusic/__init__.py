@@ -44,6 +44,9 @@ class GooglePlayMusic(GObject.Object, Peas.Activatable):
 
 
 class GEntry(RB.RhythmDBEntryType):
+    def __init__(self):
+        RB.RhythmDBEntryType.__init__(self)
+
     def do_get_playback_uri(self, entry):
         id = entry.dup_string(RB.RhythmDBPropType.LOCATION).split('/')[1]
         return api.get_stream_url(id)
@@ -215,8 +218,11 @@ class GPlaylist(GBaseSource):
         GBaseSource.setup(self)
 
     def get_songs(self):
-        return []
-        return api.get_playlist_songs(self.id)
+        try:
+            return api.get_playlist_songs(self.id)
+        except KeyError:
+            # TODO: check in gmusicapi
+            return []
 
 
 class GPlaySource(GBaseSource):

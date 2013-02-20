@@ -213,7 +213,7 @@ class GBaseSource(RB.Source):
             return True
         login = settings.get_string(LOGIN_KEY)
         password = settings.get_string(PASSWORD_KEY)
-        return api.login(login, password)
+        return api.login(login, password, perform_upload_auth=False)
 
     def auth(self, widget):
         dialog = AuthDialog()

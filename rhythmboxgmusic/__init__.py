@@ -6,7 +6,7 @@ import gettext
 import rb
 gettext.bindtextdomain("rhythmbox-gmusic", "/usr/share/locale")
 gettext.textdomain("rhythmbox-gmusic")
-api = Api()
+api = Api(debug_logging=False)
 executor = futures.ProcessPoolExecutor(max_workers=1)
 settings = GConf.Client.get_default()
 

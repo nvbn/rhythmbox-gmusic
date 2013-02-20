@@ -162,26 +162,31 @@ class GBaseSource(RB.Source):
                     shell.props.db, gentry,
                     getattr(self, 'id', '0') + '/' + song['id'],
                 )
-                shell.props.db.entry_set(
-                    entry, RB.RhythmDBPropType.TITLE,
-                    song['title'].encode('utf8'),
-                )
-                shell.props.db.entry_set(
-                    entry, RB.RhythmDBPropType.DURATION,
-                    int(song['durationMillis']) / 1000,
-                )
-                shell.props.db.entry_set(
-                    entry, RB.RhythmDBPropType.ARTIST,
-                    song['artist'].encode('utf8'),
-                )
-                shell.props.db.entry_set(
-                    entry, RB.RhythmDBPropType.ALBUM,
-                    song['album'].encode('utf8'),
-                )
-                shell.props.db.entry_set(
-                    entry, RB.RhythmDBPropType.TRACK_NUMBER,
-                    int(song['track']),
-                )
+                if 'title' in song:
+                    shell.props.db.entry_set(
+                        entry, RB.RhythmDBPropType.TITLE,
+                        song['title'].encode('utf8'),
+                    )
+                if 'durationMillis' in song:
+                    shell.props.db.entry_set(
+                        entry, RB.RhythmDBPropType.DURATION,
+                        int(song['durationMillis']) / 1000,
+                    )
+                if 'artist' in song:
+                    shell.props.db.entry_set(
+                        entry, RB.RhythmDBPropType.ARTIST,
+                        song['artist'].encode('utf8'),
+                    )
+                if 'album' in song:
+                    shell.props.db.entry_set(
+                        entry, RB.RhythmDBPropType.ALBUM,
+                        song['album'].encode('utf8'),
+                    )
+                if 'track' in song:
+                    shell.props.db.entry_set(
+                        entry, RB.RhythmDBPropType.TRACK_NUMBER,
+                        int(song['track']),
+                    )
                 self.props.base_query_model.add_entry(entry, -1)
             except TypeError:  # Already in db
                 pass

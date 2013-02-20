@@ -1,4 +1,4 @@
-from gi.repository import GObject, Peas, Gtk, GConf, RB
+from gi.repository import GObject, Peas, Gtk, GConf, RB, GLib
 from concurrent import futures
 from gmusicapi.api import Api
 from gettext import lgettext as _
@@ -152,6 +152,14 @@ class GBaseSource(RB.Source):
         self.browser.set_model(self.props.base_query_model, False)
         self.browser.connect("notify::output-model", self.update_view)
         self.browser.set_size_request(-1, 200)
+
+        self.search_widget = RB.SearchEntry.new(False)
+        self.search_widget.connect("search", self.on_search)
+
+        search_box = Gtk.Alignment.new(1, 0, 0, 1)
+        search_box.add(self.search_widget)
+
+        self.top_box.pack_start(search_box, False, False, 5)
         self.top_box.pack_start(self.browser, True, True, 0)
 
         self.update_view()
@@ -161,9 +169,25 @@ class GBaseSource(RB.Source):
         self.pack_start(self.vbox, True, True, 0)
         self.show_all()
 
+    def on_search(self, entry, text):
+        db = self.props.shell.props.db
+        query_model = RB.RhythmDBQueryModel.new_empty(db)
+        query = GLib.PtrArray()
+        db.query_append_params(
+            query, RB.RhythmDBQueryType.FUZZY_MATCH,
+            RB.RhythmDBPropType.TITLE_FOLDED, text,
+        )
+        db.query_append_params(
+            query, RB.RhythmDBQueryType.EQUALS,
+            RB.RhythmDBPropType.GENRE, 'google-play-music',  # shit!
+        )
+        db.do_full_query_parsed(query_model, query)
+        self.browser.set_model(query_model, False)
+        self.update_view()
+
     def update_view(self, *args):
         self.songs_view.set_model(self.browser.props.output_model)
-        self.set_property('query-model', self.browser.props.output_model)
+        self.props.query_model = self.browser.props.output_model
 
     def init_authenticated(self):
         if hasattr(self, 'auth_box'):
@@ -203,6 +227,10 @@ class GBaseSource(RB.Source):
                         entry, RB.RhythmDBPropType.TRACK_NUMBER,
                         int(song['track']),
                     )
+                shell.props.db.entry_set(
+                    entry, RB.RhythmDBPropType.GENRE,  # shit!
+                    'google-play-music',
+                )
                 self.props.base_query_model.add_entry(entry, -1)
             except TypeError:  # Already in db
                 pass

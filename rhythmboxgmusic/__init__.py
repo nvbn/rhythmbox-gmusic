@@ -288,17 +288,18 @@ class GPlaySource(GBaseSource):
             playlists = api.get_all_playlist_ids()
         except KeyError:
             playlists = {}
-        user, instant = playlists.get('user', {}), playlists.get('instant', {})
+        user = playlists.get('user', {})
         shell = self.props.shell
         db = shell.props.db
-        for name, id in user.items() + instant.items():
-            model = RB.RhythmDBQueryModel.new_empty(db)
-            pl = GObject.new(
-                GPlaylist, shell=shell, name=name.encode('utf8'),
-                query_model=model,
-            )
-            pl.setup(id)
-            shell.append_display_page(pl, self)
+        for name, ids in user.items():
+            for id in ids:
+                model = RB.RhythmDBQueryModel.new_empty(db)
+                pl = GObject.new(
+                    GPlaylist, shell=shell, name=name.encode('utf8'),
+                    query_model=model,
+                )
+                pl.setup(id)
+                shell.append_display_page(pl, self)
 
     def load_songs(self):
         future = executor.submit(get_songs)

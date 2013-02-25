@@ -175,7 +175,7 @@ class GBaseSource(RB.Source):
         query = GLib.PtrArray()
         db.query_append_params(
             query, RB.RhythmDBQueryType.FUZZY_MATCH,
-            RB.RhythmDBPropType.TITLE_FOLDED, text,
+            RB.RhythmDBPropType.COMMENT, text.lower().encode('utf8'),
         )
         db.query_append_params(
             query, RB.RhythmDBQueryType.EQUALS,
@@ -202,11 +202,13 @@ class GBaseSource(RB.Source):
                     shell.props.db, gentry,
                     getattr(self, 'id', '0') + '/' + song['id'],
                 )
+                full_title = []
                 if 'title' in song:
                     shell.props.db.entry_set(
                         entry, RB.RhythmDBPropType.TITLE,
                         song['title'].encode('utf8'),
                     )
+                    full_title.append(song['title'])
                 if 'durationMillis' in song:
                     shell.props.db.entry_set(
                         entry, RB.RhythmDBPropType.DURATION,
@@ -217,18 +219,26 @@ class GBaseSource(RB.Source):
                         entry, RB.RhythmDBPropType.ARTIST,
                         song['artist'].encode('utf8'),
                     )
+                    full_title.append(song['artist'])
                 if 'album' in song:
                     shell.props.db.entry_set(
                         entry, RB.RhythmDBPropType.ALBUM,
                         song['album'].encode('utf8'),
                     )
+                    full_title.append(song['album'])
                 if 'track' in song:
                     shell.props.db.entry_set(
                         entry, RB.RhythmDBPropType.TRACK_NUMBER,
                         int(song['track']),
                     )
+                # rhytmbox OR don't work for custom filters
                 shell.props.db.entry_set(
-                    entry, RB.RhythmDBPropType.GENRE,  # shit!
+                    entry, RB.RhythmDBPropType.COMMENT,
+                    ' - '.join(full_title).lower().encode('utf8'),
+                )
+                # rhythmbox segfoalt when new db created from python
+                shell.props.db.entry_set(
+                    entry, RB.RhythmDBPropType.GENRE,
                     'google-play-music',
                 )
                 self.props.base_query_model.add_entry(entry, -1)

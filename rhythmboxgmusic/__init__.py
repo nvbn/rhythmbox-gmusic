@@ -9,7 +9,14 @@ import json
 
 gettext.bindtextdomain("rhythmbox-gmusic", "/usr/share/locale")
 gettext.textdomain("rhythmbox-gmusic")
-api = Api(debug_logging=False)
+
+try:
+    # for older version
+    api = Api(debug_logging=False)
+except TypeError:
+    # for newer version
+    api = Api()
+
 executor = futures.ProcessPoolExecutor(max_workers=1)
 settings = GConf.Client.get_default()
 

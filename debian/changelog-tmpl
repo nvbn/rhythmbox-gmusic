@@ -1,0 +1,12 @@
+rhythmbox-gmusic (3.1-0~precise) precise; urgency=low
+
+  * Caches
+
+ -- Vladimir Yakovlev <nvbn.rm@gmail.com>  Tue, 11 Sep 2012 14:31:23 +0400
+
+rhythmbox-gmusic (1.0-0~precise) precise; urgency=low
+
+  * Initial package
+
+ -- Vladimir Yakovlev <nvbn.rm@gmail.com>  Sun, 30 May 2012 14:31:23 +0400
+

@@ -1,0 +1,15 @@
+Source: rhythmbox-gmusic
+Section: net
+Priority: optional
+Maintainer: Vladimir Iakovlev <nvbn.rm@gmail.com>
+Build-Depends: cdbs (>= 0.4.49), debhelper (>= 7), python (>= 2.4), python-support,  python2.7, python-setuptools, python-keyring, python-decorator, python-protobuf, python-mutagen, libgirepository-1.0-1, rhythmbox, gir1.2-gconf-2.0 
+Standards-Version: 3.9.2
+Homepage: https://github.com/nvbn/rhythmbox-gmusic/
+#Vcs-Git: git://git.debian.org/collab-maint/terminator.git
+#Vcs-Browser: http://git.debian.org/?p=collab-maint/terminator.git;a=summary
+
+Package: rhythmbox-gmusic
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-support,  python2.7, python-setuptools, python-keyring, python-decorator, libgirepository-1.0-1, rhythmbox, gir1.2-gconf-2.0, python-concurrent.futures, python-gmusicapi
+Description: Rhythmbox plugin for playing music from Google Play
+

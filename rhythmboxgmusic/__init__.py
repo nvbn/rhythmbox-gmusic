@@ -1,9 +1,12 @@
-from gi.repository import GObject, Peas, Gtk, GConf, RB, GLib
+from gi.repository import GObject, Peas, Gtk, GConf, RB, GLib, GnomeKeyring
 from concurrent import futures
 from gmusicapi.api import Api
 from gettext import lgettext as _
 import gettext
 import rb
+import json
+
+
 gettext.bindtextdomain("rhythmbox-gmusic", "/usr/share/locale")
 gettext.textdomain("rhythmbox-gmusic")
 
@@ -17,9 +20,12 @@ except TypeError:
 executor = futures.ProcessPoolExecutor(max_workers=1)
 settings = GConf.Client.get_default()
 
+LOGIN_KEY = 'login'
+PASSWORD_KEY = 'password'
+APP_KEY = 'rhythmbox-gmusic'
+result, KEYRING = GnomeKeyring.get_default_keyring_sync()
 
-LOGIN_KEY = '/apps/gnome/rhythmbox/google-play-music/login'
-PASSWORD_KEY = '/apps/gnome/rhythmbox/google-play-music/password'
+GnomeKeyring.unlock_sync(KEYRING, None)
 
 
 def get_songs():
@@ -34,6 +40,26 @@ def get_playlist_songs(id):
         return api.get_playlist_songs(id)
     except KeyError:
         return []
+
+
+def get_credentials():
+    attrs = GnomeKeyring.Attribute.list_new()
+    GnomeKeyring.Attribute.list_append_string(attrs, 'id', APP_KEY)
+    result, value = GnomeKeyring.find_items_sync(GnomeKeyring.ItemType.GENERIC_SECRET, attrs)
+    if result == GnomeKeyring.Result.OK:
+        return json.loads(value[0].secret)
+    else:
+        return '', ''
+
+
+def set_credentials(username, password):
+    GnomeKeyring.create_sync(KEYRING, None)
+    attrs = GnomeKeyring.Attribute.list_new()
+    GnomeKeyring.Attribute.list_append_string(attrs, 'id', APP_KEY)
+    GnomeKeyring.item_create_sync(
+        KEYRING, GnomeKeyring.ItemType.GENERIC_SECRET, APP_KEY,
+        attrs, json.dumps([username, password]), True,
+    )
 
 
 class GooglePlayMusic(GObject.Object, Peas.Activatable):
@@ -139,7 +165,6 @@ class GBaseSource(RB.Source):
         )
         self.vbox = Gtk.Paned.new(Gtk.Orientation.VERTICAL)
         self.top_box = Gtk.VBox()
-
         if self.login():
             self.init_authenticated()
         else:
@@ -198,7 +223,7 @@ class GBaseSource(RB.Source):
 
     def init_authenticated(self):
         if hasattr(self, 'auth_box'):
-            self.vbox.remove(self.auth_box)
+            self.top_box.remove(self.auth_box)
         self.load_songs()
 
     def init_songs(self, songs):
@@ -256,16 +281,16 @@ class GBaseSource(RB.Source):
     def login(self):
         if api.is_authenticated():
             return True
-        login = settings.get_string(LOGIN_KEY)
-        password = settings.get_string(PASSWORD_KEY)
+        login, password = get_credentials()
         return api.login(login, password, perform_upload_auth=False)
 
     def auth(self, widget):
         dialog = AuthDialog()
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
-            settings.set_string(LOGIN_KEY, dialog.login_input.get_text())
-            settings.set_string(PASSWORD_KEY, dialog.password_input.get_text())
+            login = dialog.login_input.get_text()
+            password = dialog.password_input.get_text()
+            set_credentials(login, password)
             if self.login():
                 self.init_authenticated()
         dialog.destroy()
@@ -295,17 +320,18 @@ class GPlaySource(GBaseSource):
             playlists = api.get_all_playlist_ids()
         except KeyError:
             playlists = {}
-        user, instant = playlists.get('user', {}), playlists.get('instant', {})
+        user = playlists.get('user', {})
         shell = self.props.shell
         db = shell.props.db
-        for name, id in user.items() + instant.items():
-            model = RB.RhythmDBQueryModel.new_empty(db)
-            pl = GObject.new(
-                GPlaylist, shell=shell, name=name.encode('utf8'),
-                query_model=model,
-            )
-            pl.setup(id)
-            shell.append_display_page(pl, self)
+        for name, ids in user.items():
+            for id in ids:
+                model = RB.RhythmDBQueryModel.new_empty(db)
+                pl = GObject.new(
+                    GPlaylist, shell=shell, name=name.encode('utf8'),
+                    query_model=model,
+                )
+                pl.setup(id)
+                shell.append_display_page(pl, self)
 
     def load_songs(self):
         future = executor.submit(get_songs)

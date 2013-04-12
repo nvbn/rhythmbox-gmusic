@@ -17,7 +17,7 @@ except TypeError:
     # for newer version
     api = Api()
 
-executor = futures.ProcessPoolExecutor(max_workers=1)
+executor = futures.ThreadPoolExecutor(max_workers=1)
 settings = GConf.Client.get_default()
 
 LOGIN_KEY = 'login'

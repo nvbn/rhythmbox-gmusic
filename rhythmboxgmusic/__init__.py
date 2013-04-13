@@ -1,6 +1,6 @@
 from gi.repository import GObject, Peas, Gtk, GConf, RB, GLib, GnomeKeyring
 from concurrent import futures
-from gmusicapi.api import Api
+from gmusicapi import Webclient as Api
 from gettext import lgettext as _
 import gettext
 import rb
@@ -17,7 +17,7 @@ except TypeError:
     # for newer version
     api = Api()
 
-executor = futures.ProcessPoolExecutor(max_workers=1)
+executor = futures.ThreadPoolExecutor(max_workers=1)
 settings = GConf.Client.get_default()
 
 LOGIN_KEY = 'login'
@@ -282,7 +282,7 @@ class GBaseSource(RB.Source):
         if api.is_authenticated():
             return True
         login, password = get_credentials()
-        return api.login(login, password, perform_upload_auth=False)
+        return api.login(login, password)
 
     def auth(self, widget):
         dialog = AuthDialog()

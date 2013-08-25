@@ -98,7 +98,7 @@ class GEntry(RB.RhythmDBEntryType):
 
     def do_get_playback_uri(self, entry):
         id = entry.dup_string(RB.RhythmDBPropType.LOCATION).split('/')[1]
-        return api.get_stream_url(id)
+        return api.get_stream_urls(id)[0]
 
     def do_can_sync_metadata(self, entry):
         return True

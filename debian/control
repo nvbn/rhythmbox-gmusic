@@ -10,6 +10,6 @@ Homepage: https://github.com/nvbn/rhythmbox-gmusic/
 
 Package: rhythmbox-gmusic
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, python-support,  python2.7, python-setuptools, python-keyring, python-decorator, libgirepository-1.0-1, rhythmbox, gir1.2-gconf-2.0, python-concurrent.futures, python-gmusicapi
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-support,  python2.7, python-setuptools, python-keyring, python-decorator, libgirepository-1.0-1, rhythmbox, gir1.2-gconf-2.0, python-concurrent.futures, python-gmusicapi, python-dateutil, python-requests, python-validictory
 Description: Rhythmbox plugin for playing music from Google Play
 

@@ -1,3 +1,9 @@
+rhythmbox-gmusic (5.0-0~{{ release }}) {{ release }}; urgency=low
+
+  * Update package
+
+ -- Vladimir Iakovlev <nvbn.rm@gmail.com>  Thu, 19 Sep 2013 12:22:04 +0400
+
 rhythmbox-gmusic (4.0-0~{{ release }}) {{ release }}; urgency=low
 
   * Add artist/album browser

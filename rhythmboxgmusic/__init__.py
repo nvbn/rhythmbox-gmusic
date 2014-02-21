@@ -12,7 +12,7 @@ gettext.textdomain("rhythmbox-gmusic")
 
 try:
     # for older version
-    api = Api(debug_logging=False)
+    api = Api(debug_logging=False,verify_ssl=False)
 except TypeError:
     # for newer version
     api = Api()
@@ -20,8 +20,6 @@ except TypeError:
 executor = futures.ThreadPoolExecutor(max_workers=1)
 settings = GConf.Client.get_default()
 
-LOGIN_KEY = 'login'
-PASSWORD_KEY = 'password'
 APP_KEY = 'rhythmbox-gmusic'
 result, KEYRING = GnomeKeyring.get_default_keyring_sync()
 
@@ -53,7 +51,8 @@ def get_credentials():
 
 
 def set_credentials(username, password):
-    GnomeKeyring.create_sync(KEYRING, None)
+    if KEYRING is not None:
+        GnomeKeyring.create_sync(KEYRING, None)
     attrs = GnomeKeyring.Attribute.list_new()
     GnomeKeyring.Attribute.list_append_string(attrs, 'id', APP_KEY)
     GnomeKeyring.item_create_sync(

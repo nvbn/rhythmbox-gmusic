@@ -35,10 +35,13 @@ def get_songs():
     except KeyError:
         return []
 
-
 def get_playlist_songs(id):
     try:
-        return api.get_playlist_songs(id)
+        #Mobile API can't get a single playlist's contents
+        playlists = mapi.get_all_user_playlist_contents()
+        for playlist in playlists:
+            if playlist['id'] == id:
+                return playlist['tracks']
     except KeyError:
         return []
 
@@ -319,24 +322,50 @@ class GPlaylist(GBaseSource):
         future = executor.submit(get_playlist_songs, self.id)
         future.add_done_callback(self.init_songs)
 
+    def init_songs(self, songs):
+        shell = self.props.shell
+        for song in songs.result():
+            try:
+                #TODO: Look up song data in parent source, somehow
+                entry = RB.RhythmDBEntry.new(
+                    shell.props.db, gentry,
+                    getattr(self, 'id', '0') + '/' + song['trackId'],
+                    )
+                shell.props.db.entry_set(
+                    entry, RB.RhythmDBPropType.TITLE,
+                    song['trackId'].encode('utf8'),
+                    )
+                full_title=song['trackId']
+                # rhytmbox OR don't work for custom filters
+                shell.props.db.entry_set(
+                    entry, RB.RhythmDBPropType.COMMENT,
+                    ' - '.join(full_title).lower().encode('utf8'),
+                )
+                # rhythmbox segfoalt when new db created from python
+                shell.props.db.entry_set(
+                    entry, RB.RhythmDBPropType.GENRE,
+                    'google-play-music',
+                )
+                self.props.base_query_model.add_entry(entry, -1)
+            except TypeError:
+                pass # Already in database
+        shell.props.db.commit()
 
 class GPlaySource(GBaseSource):
     def init_authenticated(self):
         GBaseSource.init_authenticated(self)
-        # Fix later - let's get normal songs working first.
-        # self.playlists = []
-        # playlists = mapi.get_all_playlists()
-        # #user = playlists.get('user', {})
-        # shell = self.props.shell
-        # db = shell.props.db
-        # for playlist in playlists:
-        #     model = RB.RhythmDBQueryModel.new_empty(db)
-        #     pl = GObject.new(
-        #         GPlaylist, shell=shell, name=playlist['name'].encode('utf8'),
-        #         query_model=model,
-        #         )
-        #     pl.setup(playlist['id'])
-        #     shell.append_display_page(pl, self)
+        self.playlists = []
+        playlists = mapi.get_all_playlists()
+        shell = self.props.shell
+        db = shell.props.db
+        for playlist in playlists:
+            model = RB.RhythmDBQueryModel.new_empty(db)
+            pl = GObject.new(
+                GPlaylist, shell=shell, name=playlist['name'].encode('utf8'),
+                query_model=model,
+                )
+            pl.setup(playlist['id'])
+            shell.append_display_page(pl, self)
 
     def load_songs(self):
         future = executor.submit(get_songs)

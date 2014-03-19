@@ -237,7 +237,7 @@ class GBaseSource(RB.Source):
             try:
                 entry = RB.RhythmDBEntry.new(
                     shell.props.db, gentry,
-                    getattr(self, 'id', '0') + '/' + song['id'],
+                    getattr(self, 'id', 'gmusic') + '/' + song['id'],
                 )
                 full_title = []
                 if 'title' in song:
@@ -324,32 +324,40 @@ class GPlaylist(GBaseSource):
 
     def init_songs(self, songs):
         shell = self.props.shell
+        db = shell.props.db
         for song in songs.result():
-            try:
-                #TODO: Look up song data in parent source, somehow
-                entry = RB.RhythmDBEntry.new(
-                    shell.props.db, gentry,
-                    getattr(self, 'id', '0') + '/' + song['trackId'],
-                    )
-                shell.props.db.entry_set(
-                    entry, RB.RhythmDBPropType.TITLE,
-                    song['trackId'].encode('utf8'),
-                    )
-                full_title=song['trackId']
-                # rhytmbox OR don't work for custom filters
-                shell.props.db.entry_set(
-                    entry, RB.RhythmDBPropType.COMMENT,
-                    ' - '.join(full_title).lower().encode('utf8'),
+            src_entry = db.entry_lookup_from_string(
+                'gmusic/' + song['trackId'], False)
+            entry = RB.RhythmDBEntry.new(
+                db, gentry,
+                getattr(self, 'id', '0') + '/' + song['trackId'],
                 )
-                # rhythmbox segfoalt when new db created from python
-                shell.props.db.entry_set(
-                    entry, RB.RhythmDBPropType.GENRE,
-                    'google-play-music',
+            db.entry_set(
+                entry, RB.RhythmDBPropType.TITLE,
+                src_entry.get_string(RB.RhythmDBPropType.TITLE),
                 )
-                self.props.base_query_model.add_entry(entry, -1)
-            except TypeError:
-                pass # Already in database
-        shell.props.db.commit()
+            db.entry_set(
+                entry, RB.RhythmDBPropType.DURATION,
+                src_entry.get_ulong(RB.RhythmDBPropType.DURATION),
+                )
+            db.entry_set(
+                entry, RB.RhythmDBPropType.ARTIST,
+                src_entry.get_string(RB.RhythmDBPropType.ARTIST),
+                )
+            db.entry_set(
+                entry, RB.RhythmDBPropType.ALBUM,
+                src_entry.get_string(RB.RhythmDBPropType.ALBUM),
+                )
+            db.entry_set(
+                entry, RB.RhythmDBPropType.COMMENT,
+                src_entry.get_string(RB.RhythmDBPropType.COMMENT)
+                )
+            db.entry_set(
+                entry, RB.RhythmDBPropType.GENRE,
+                'google-play-music-playlist',
+                )
+            self.props.base_query_model.add_entry(entry, -1)
+        db.commit()
 
 class GPlaySource(GBaseSource):
     def init_authenticated(self):

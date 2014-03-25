@@ -1,6 +1,7 @@
 from gi.repository import GObject, Peas, Gtk, GConf, RB, GLib, GnomeKeyring
 from concurrent import futures
 from gmusicapi import Webclient as Api
+from gmusicapi import Mobileclient as Mapi
 from gettext import lgettext as _
 import gettext
 import rb
@@ -13,9 +14,11 @@ gettext.textdomain("rhythmbox-gmusic")
 try:
     # for older version
     api = Api(debug_logging=False,verify_ssl=False)
+    mapi = Mapi(debug_logging=False,verify_ssl=False)
 except TypeError:
     # for newer version
     api = Api()
+    mapi = Mapi()
 
 executor = futures.ThreadPoolExecutor(max_workers=1)
 settings = GConf.Client.get_default()
@@ -28,14 +31,17 @@ GnomeKeyring.unlock_sync(KEYRING, None)
 
 def get_songs():
     try:
-        return api.get_all_songs()
+        return mapi.get_all_songs()
     except KeyError:
         return []
 
-
 def get_playlist_songs(id):
     try:
-        return api.get_playlist_songs(id)
+        #Mobile API can't get a single playlist's contents
+        playlists = mapi.get_all_user_playlist_contents()
+        for playlist in playlists:
+            if playlist['id'] == id:
+                return playlist['tracks']
     except KeyError:
         return []
 
@@ -164,7 +170,7 @@ class GBaseSource(RB.Source):
         )
         self.vbox = Gtk.Paned.new(Gtk.Orientation.VERTICAL)
         self.top_box = Gtk.VBox()
-        if self.login():
+        if self.api_login() and self.mapi_login():
             self.init_authenticated()
         else:
             label = Gtk.Label(
@@ -231,7 +237,7 @@ class GBaseSource(RB.Source):
             try:
                 entry = RB.RhythmDBEntry.new(
                     shell.props.db, gentry,
-                    getattr(self, 'id', '0') + '/' + song['id'],
+                    getattr(self, 'id', 'gmusic') + '/' + song['id'],
                 )
                 full_title = []
                 if 'title' in song:
@@ -257,10 +263,10 @@ class GBaseSource(RB.Source):
                         song['album'].encode('utf8'),
                     )
                     full_title.append(song['album'])
-                if 'track' in song:
+                if 'trackNumber' in song:
                     shell.props.db.entry_set(
                         entry, RB.RhythmDBPropType.TRACK_NUMBER,
-                        int(song['track']),
+                        int(song['trackNumber']),
                     )
                 # rhytmbox OR don't work for custom filters
                 shell.props.db.entry_set(
@@ -277,11 +283,17 @@ class GBaseSource(RB.Source):
                 pass
         shell.props.db.commit()
 
-    def login(self):
+    def api_login(self):
         if api.is_authenticated():
             return True
         login, password = get_credentials()
         return api.login(login, password)
+
+    def mapi_login(self):
+        if mapi.is_authenticated():
+            return True
+        login, password = get_credentials()
+        return mapi.login(login, password)
 
     def auth(self, widget):
         dialog = AuthDialog()
@@ -290,7 +302,7 @@ class GBaseSource(RB.Source):
             login = dialog.login_input.get_text()
             password = dialog.password_input.get_text()
             set_credentials(login, password)
-            if self.login():
+            if self.api_login() and self.mapi_login():
                 self.init_authenticated()
         dialog.destroy()
 
@@ -310,27 +322,58 @@ class GPlaylist(GBaseSource):
         future = executor.submit(get_playlist_songs, self.id)
         future.add_done_callback(self.init_songs)
 
+    def init_songs(self, songs):
+        shell = self.props.shell
+        db = shell.props.db
+        for song in songs.result():
+            src_entry = db.entry_lookup_from_string(
+                'gmusic/' + song['trackId'], False)
+            entry = RB.RhythmDBEntry.new(
+                db, gentry,
+                getattr(self, 'id', '0') + '/' + song['trackId'],
+                )
+            db.entry_set(
+                entry, RB.RhythmDBPropType.TITLE,
+                src_entry.get_string(RB.RhythmDBPropType.TITLE),
+                )
+            db.entry_set(
+                entry, RB.RhythmDBPropType.DURATION,
+                src_entry.get_ulong(RB.RhythmDBPropType.DURATION),
+                )
+            db.entry_set(
+                entry, RB.RhythmDBPropType.ARTIST,
+                src_entry.get_string(RB.RhythmDBPropType.ARTIST),
+                )
+            db.entry_set(
+                entry, RB.RhythmDBPropType.ALBUM,
+                src_entry.get_string(RB.RhythmDBPropType.ALBUM),
+                )
+            db.entry_set(
+                entry, RB.RhythmDBPropType.COMMENT,
+                src_entry.get_string(RB.RhythmDBPropType.COMMENT)
+                )
+            db.entry_set(
+                entry, RB.RhythmDBPropType.GENRE,
+                'google-play-music-playlist',
+                )
+            self.props.base_query_model.add_entry(entry, -1)
+        db.commit()
 
 class GPlaySource(GBaseSource):
     def init_authenticated(self):
         GBaseSource.init_authenticated(self)
         self.playlists = []
-        try:
-            playlists = api.get_all_playlist_ids()
-        except KeyError:
-            playlists = {}
-        user = playlists.get('user', {})
+        playlists = mapi.get_all_playlists()
         shell = self.props.shell
         db = shell.props.db
-        for name, ids in user.items():
-            for id in ids:
-                model = RB.RhythmDBQueryModel.new_empty(db)
-                pl = GObject.new(
-                    GPlaylist, shell=shell, name=name.encode('utf8'),
-                    query_model=model,
+        for playlist in playlists:
+            model = RB.RhythmDBQueryModel.new_empty(db)
+            pl = GObject.new(
+                GPlaylist, shell=shell, name=playlist['name'].encode('utf8'),
+                query_model=model,
                 )
-                pl.setup(id)
-                shell.append_display_page(pl, self)
+            pl.setup(playlist['id'])
+            shell.append_display_page(pl, self)
 
     def load_songs(self):
         future = executor.submit(get_songs)

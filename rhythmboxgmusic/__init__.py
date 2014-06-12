@@ -1,4 +1,5 @@
-from gi.repository import GObject, Peas, Gtk, GConf, RB, GLib, GnomeKeyring
+from gi.repository import (GObject, Peas, Gtk, GConf, RB, GLib,
+                           GnomeKeyring, GdkPixbuf)
 from concurrent import futures
 from gmusicapi import Webclient as Api
 from gmusicapi import Mobileclient as Mapi
@@ -6,7 +7,7 @@ from gettext import lgettext as _
 import gettext
 import rb
 import json
-
+import os.path
 
 gettext.bindtextdomain("rhythmbox-gmusic", "/usr/share/locale")
 gettext.textdomain("rhythmbox-gmusic")
@@ -78,12 +79,13 @@ class GooglePlayMusic(GObject.Object, Peas.Activatable):
         shell = self.object
         db = shell.props.db
         model = RB.RhythmDBQueryModel.new_empty(db)
-        theme = Gtk.IconTheme.get_default()
         what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.LARGE_TOOLBAR)
-        icon = rb.try_load_icon(theme, "media-playback-start", width, 0)
+        basedir = os.path.dirname(os.path.abspath(__file__))
+        icon = GdkPixbuf.Pixbuf.new_from_file_at_size(
+            os.path.join(basedir, '../images/gplay_icon.png'), width, height)
         self.source = GObject.new(
             GPlaySource, shell=shell,
-            name="Google Music",
+            name="Google Play Music",
             query_model=model,
             plugin=self,
             pixbuf=icon,
@@ -382,11 +384,14 @@ class GPlaySource(GBaseSource):
         playlists = mapi.get_all_playlists()
         shell = self.props.shell
         db = shell.props.db
+        theme = Gtk.IconTheme.get_default()
+        what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.SMALL_TOOLBAR)
+        icon = rb.try_load_icon(theme, "playlist", width, 0)
         for playlist in playlists:
             model = RB.RhythmDBQueryModel.new_empty(db)
             pl = GObject.new(
                 GPlaylist, shell=shell, name=playlist['name'].encode('utf8'),
-                query_model=model,
+                query_model=model, pixbuf=icon
                 )
             pl.setup(playlist['id'])
             shell.append_display_page(pl, self)

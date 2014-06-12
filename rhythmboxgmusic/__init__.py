@@ -322,6 +322,22 @@ class GPlaylist(GBaseSource):
         future = executor.submit(get_playlist_songs, self.id)
         future.add_done_callback(self.init_songs)
 
+    def on_search(self, entry, text):
+        db = self.props.shell.props.db
+        query_model = RB.RhythmDBQueryModel.new_empty(db)
+        query = GLib.PtrArray()
+        db.query_append_params(
+            query, RB.RhythmDBQueryType.FUZZY_MATCH,
+            RB.RhythmDBPropType.COMMENT, text.lower().encode('utf8'),
+        )
+        db.query_append_params(
+            query, RB.RhythmDBQueryType.EQUALS,
+            RB.RhythmDBPropType.GENRE, 'google-play-music-playlist',
+        )
+        db.do_full_query_parsed(query_model, query)
+        self.browser.set_model(query_model, False)
+        self.update_view()
+
     def init_songs(self, songs):
         shell = self.props.shell
         db = shell.props.db

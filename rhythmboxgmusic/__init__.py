@@ -235,6 +235,7 @@ class GBaseSource(RB.Source):
 
     def init_songs(self, songs):
         shell = self.props.shell
+        art_db = RB.ExtDB(name='album-art')
         for song in songs.result():
             try:
                 entry = RB.RhythmDBEntry.new(
@@ -242,6 +243,7 @@ class GBaseSource(RB.Source):
                     getattr(self, 'id', 'gmusic') + '/' + song['id'],
                 )
                 full_title = []
+                art_key = None
                 if 'title' in song:
                     shell.props.db.entry_set(
                         entry, RB.RhythmDBPropType.TITLE,
@@ -253,18 +255,21 @@ class GBaseSource(RB.Source):
                         entry, RB.RhythmDBPropType.DURATION,
                         int(song['durationMillis']) / 1000,
                     )
-                if 'artist' in song:
-                    shell.props.db.entry_set(
-                        entry, RB.RhythmDBPropType.ARTIST,
-                        song['artist'].encode('utf8'),
-                    )
-                    full_title.append(song['artist'])
                 if 'album' in song:
                     shell.props.db.entry_set(
                         entry, RB.RhythmDBPropType.ALBUM,
                         song['album'].encode('utf8'),
                     )
                     full_title.append(song['album'])
+                    #ready the album art key
+                    art_key = RB.ExtDBKey.create_storage('album', song['album'])
+                if 'artist' in song:
+                    shell.props.db.entry_set(
+                        entry, RB.RhythmDBPropType.ARTIST,
+                        song['artist'].encode('utf8'),
+                    )
+                    full_title.append(song['artist'])
+                    if art_key: art_key.add_field('artist', song['artist'])
                 if 'trackNumber' in song:
                     shell.props.db.entry_set(
                         entry, RB.RhythmDBPropType.TRACK_NUMBER,
@@ -281,6 +286,11 @@ class GBaseSource(RB.Source):
                     'google-play-music',
                 )
                 self.props.base_query_model.add_entry(entry, -1)
+                #Store the album art url if there's no art already there
+                if art_key:
+                    if not art_db.lookup(art_key) and 'albumArtRef' in song:
+                        art_db.store_uri(art_key, RB.ExtDBSourceType.SEARCH,
+                                         song['albumArtRef'][0]['url'])
             except TypeError:  # Already in db
                 pass
         shell.props.db.commit()

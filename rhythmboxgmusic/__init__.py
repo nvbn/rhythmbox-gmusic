@@ -79,10 +79,9 @@ class GooglePlayMusic(GObject.Object, Peas.Activatable):
         shell = self.object
         db = shell.props.db
         model = RB.RhythmDBQueryModel.new_empty(db)
+        theme = Gtk.IconTheme.get_default()
         what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.LARGE_TOOLBAR)
-        basedir = os.path.dirname(os.path.abspath(__file__))
-        icon = GdkPixbuf.Pixbuf.new_from_file_at_size(
-            os.path.join(basedir, '../images/gplay_icon.png'), width, height)
+        icon = rb.try_load_icon(theme, "media-playback-start", width, 0)
         self.source = GObject.new(
             GPlaySource, shell=shell,
             name="Google Play Music",

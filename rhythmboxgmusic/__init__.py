@@ -85,7 +85,7 @@ class GooglePlayMusic(GObject.Object, Peas.Activatable):
         what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.LARGE_TOOLBAR)
         icon = rb.try_load_icon(theme, "media-playback-start", width, 0)
         self.source = GObject.new(
-            GPlaySource, shell=shell,
+            GooglePlayLibrary, shell=shell,
             name="Google Play Music",
             query_model=model,
             plugin=self,
@@ -141,7 +141,7 @@ class AuthDialog(Gtk.Dialog):
         self.show_all()
 
 
-class GBaseSource(RB.Source):
+class GooglePlayBaseSource(RB.Source):
     def setup(self):
         shell = self.props.shell
         self.songs_view = RB.EntryView.new(
@@ -313,11 +313,11 @@ class GBaseSource(RB.Source):
             )
         return entry
 
-class GPlaylist(GBaseSource):
+class GooglePlayPlaylist(GooglePlayBaseSource):
     def setup(self, id, trackdata):
         self.id = id
         self.trackdata = trackdata
-        GBaseSource.setup(self)
+        GooglePlayBaseSource.setup(self)
 
     def load_songs(self):
         future = executor.submit(get_playlist_songs, self.id)
@@ -359,7 +359,7 @@ class GPlaylist(GBaseSource):
         db.commit()
         delattr(self, trackdata) #Memory concerns
 
-class GPlaySource(GBaseSource):
+class GooglePlayLibrary(GooglePlayBaseSource):
     def init_songs(self, future):
         shell = self.props.shell
         art_db = RB.ExtDB(name='album-art')
@@ -396,11 +396,12 @@ class GPlaySource(GBaseSource):
         for playlist in self.playlists:
             model = RB.RhythmDBQueryModel.new_empty(db)
             pl = GObject.new(
-                GPlaylist, shell=shell, name=playlist['name'].encode('utf8'),
+                GooglePlayPlaylist, shell=shell,
+                name=playlist['name'].encode('utf8'),
                 query_model=model, pixbuf=icon
                 )
             pl.setup(playlist['id'], self.trackdata)
             shell.append_display_page(pl, self)
 
 
-GObject.type_register(GPlaySource)
+GObject.type_register(GooglePlayLibrary)

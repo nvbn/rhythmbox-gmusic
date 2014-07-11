@@ -32,23 +32,6 @@ result, KEYRING = GnomeKeyring.get_default_keyring_sync()
 GnomeKeyring.unlock_sync(KEYRING, None)
 
 
-def get_songs():
-    try:
-        return mapi.get_all_songs()
-    except KeyError:
-        return []
-
-def get_playlist_songs(id):
-    try:
-        #Mobile API can't get a single playlist's contents
-        playlists = mapi.get_all_user_playlist_contents()
-        for playlist in playlists:
-            if playlist['id'] == id:
-                return playlist['tracks']
-    except KeyError:
-        return []
-
-
 def get_credentials():
     attrs = GnomeKeyring.Attribute.list_new()
     GnomeKeyring.Attribute.list_append_string(attrs, 'id', APP_KEY)
@@ -234,9 +217,6 @@ class GooglePlayBaseSource(RB.Source):
             self.top_box.remove(self.auth_box)
         self.load_songs()
 
-    def init_songs(self, songs):
-        raise NotImplementedError
-
     def api_login(self):
         if api.is_authenticated():
             return True
@@ -262,9 +242,6 @@ class GooglePlayBaseSource(RB.Source):
 
     def do_impl_get_entry_view(self):
         return self.songs_view
-
-    def load_songs(self):
-        raise NotImplementedError
 
     def create_entry_from_track_data(self, src_id, id_key, track):
         shell = self.props.shell
@@ -313,6 +290,10 @@ class GooglePlayBaseSource(RB.Source):
             )
         return entry
 
+    def load_songs():
+        raise NotImplementedError
+
+
 class GooglePlayPlaylist(GooglePlayBaseSource):
     def setup(self, id, trackdata):
         self.id = id
@@ -357,13 +338,14 @@ class GooglePlayPlaylist(GooglePlayBaseSource):
                     )
                 self.props.base_query_model.add_entry(entry, -1)
         db.commit()
-        delattr(self, trackdata) #Memory concerns
+        delattr(self, 'trackdata') #Memory concerns
+
 
 class GooglePlayLibrary(GooglePlayBaseSource):
-    def init_songs(self, future):
+    def load_songs(self):
         shell = self.props.shell
         art_db = RB.ExtDB(name='album-art')
-        self.trackdata = future.result()
+        self.trackdata = mapi.get_all_songs()
         for song in self.trackdata:
             try:
                 entry = self.create_entry_from_track_data(
@@ -381,10 +363,6 @@ class GooglePlayLibrary(GooglePlayBaseSource):
                 pass
         shell.props.db.commit()
         self.load_playlists()
-
-    def load_songs(self):
-        future = executor.submit(get_songs)
-        future.add_done_callback(self.init_songs)
 
     def load_playlists(self):
         shell = self.props.shell

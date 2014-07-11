@@ -32,6 +32,16 @@ result, KEYRING = GnomeKeyring.get_default_keyring_sync()
 GnomeKeyring.unlock_sync(KEYRING, None)
 
 
+def get_playlist_songs(id):
+    try:
+        #Mobile API can't get a single playlist's contents
+        playlists = mapi.get_all_user_playlist_contents()
+        for playlist in playlists:
+            if playlist['id'] == id:
+                return playlist['tracks']
+    except KeyError:
+        return []
+
 def get_credentials():
     attrs = GnomeKeyring.Attribute.list_new()
     GnomeKeyring.Attribute.list_append_string(attrs, 'id', APP_KEY)

@@ -294,6 +294,47 @@ class GooglePlayBaseSource(RB.Source):
         raise NotImplementedError
 
 
+class GooglePlayLibrary(GooglePlayBaseSource):
+    def load_songs(self):
+        shell = self.props.shell
+        art_db = RB.ExtDB(name='album-art')
+        self.trackdata = mapi.get_all_songs()
+        for song in self.trackdata:
+            try:
+                entry = self.create_entry_from_track_data(
+                    getattr(self, 'id', 'gmusic'), 'id', song)
+                self.props.base_query_model.add_entry(entry, -1)
+                #Store the album art url if there's no art already there
+                if 'album' in song:
+                    art_key = RB.ExtDBKey.create_storage('album', song['album'])
+                    if 'artist' in song:
+                        art_key.add_field('artist', song['artist'])
+                    if not art_db.lookup(art_key) and 'albumArtRef' in song:
+                        art_db.store_uri(art_key, RB.ExtDBSourceType.SEARCH,
+                                         song['albumArtRef'][0]['url'])
+            except TypeError:  # Already in db
+                pass
+        shell.props.db.commit()
+        self.load_playlists()
+
+    def load_playlists(self):
+        shell = self.props.shell
+        db = shell.props.db
+        theme = Gtk.IconTheme.get_default()
+        what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.SMALL_TOOLBAR)
+        icon = rb.try_load_icon(theme, "playlist", width, 0)
+        self.playlists = mapi.get_all_playlists()
+        for playlist in self.playlists:
+            model = RB.RhythmDBQueryModel.new_empty(db)
+            pl = GObject.new(
+                GooglePlayPlaylist, shell=shell,
+                name=playlist['name'].encode('utf8'),
+                query_model=model, pixbuf=icon
+                )
+            pl.setup(playlist['id'], self.trackdata)
+            shell.append_display_page(pl, self)
+
+
 class GooglePlayPlaylist(GooglePlayBaseSource):
     def setup(self, id, trackdata):
         self.id = id
@@ -339,47 +380,6 @@ class GooglePlayPlaylist(GooglePlayBaseSource):
                 self.props.base_query_model.add_entry(entry, -1)
         db.commit()
         delattr(self, 'trackdata') #Memory concerns
-
-
-class GooglePlayLibrary(GooglePlayBaseSource):
-    def load_songs(self):
-        shell = self.props.shell
-        art_db = RB.ExtDB(name='album-art')
-        self.trackdata = mapi.get_all_songs()
-        for song in self.trackdata:
-            try:
-                entry = self.create_entry_from_track_data(
-                    getattr(self, 'id', 'gmusic'), 'id', song)
-                self.props.base_query_model.add_entry(entry, -1)
-                #Store the album art url if there's no art already there
-                if 'album' in song:
-                    art_key = RB.ExtDBKey.create_storage('album', song['album'])
-                    if 'artist' in song:
-                        art_key.add_field('artist', song['artist'])
-                    if not art_db.lookup(art_key) and 'albumArtRef' in song:
-                        art_db.store_uri(art_key, RB.ExtDBSourceType.SEARCH,
-                                         song['albumArtRef'][0]['url'])
-            except TypeError:  # Already in db
-                pass
-        shell.props.db.commit()
-        self.load_playlists()
-
-    def load_playlists(self):
-        shell = self.props.shell
-        db = shell.props.db
-        theme = Gtk.IconTheme.get_default()
-        what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.SMALL_TOOLBAR)
-        icon = rb.try_load_icon(theme, "playlist", width, 0)
-        self.playlists = mapi.get_all_playlists()
-        for playlist in self.playlists:
-            model = RB.RhythmDBQueryModel.new_empty(db)
-            pl = GObject.new(
-                GooglePlayPlaylist, shell=shell,
-                name=playlist['name'].encode('utf8'),
-                query_model=model, pixbuf=icon
-                )
-            pl.setup(playlist['id'], self.trackdata)
-            shell.append_display_page(pl, self)
 
 
 GObject.type_register(GooglePlayLibrary)

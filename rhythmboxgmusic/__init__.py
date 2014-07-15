@@ -8,7 +8,9 @@ import gettext
 import rb
 import json
 import os.path
+import logging
 
+logging.basicConfig() #Output useful errors in ThreadPoolExecutors
 gettext.bindtextdomain("rhythmbox-gmusic", "/usr/share/locale")
 gettext.textdomain("rhythmbox-gmusic")
 
@@ -30,12 +32,6 @@ result, KEYRING = GnomeKeyring.get_default_keyring_sync()
 GnomeKeyring.unlock_sync(KEYRING, None)
 
 
-def get_songs():
-    try:
-        return mapi.get_all_songs()
-    except KeyError:
-        return []
-
 def get_playlist_songs(id):
     try:
         #Mobile API can't get a single playlist's contents
@@ -45,7 +41,6 @@ def get_playlist_songs(id):
                 return playlist['tracks']
     except KeyError:
         return []
-
 
 def get_credentials():
     attrs = GnomeKeyring.Attribute.list_new()
@@ -83,7 +78,7 @@ class GooglePlayMusic(GObject.Object, Peas.Activatable):
         what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.LARGE_TOOLBAR)
         icon = rb.try_load_icon(theme, "media-playback-start", width, 0)
         self.source = GObject.new(
-            GPlaySource, shell=shell,
+            GooglePlayLibrary, shell=shell,
             name="Google Play Music",
             query_model=model,
             plugin=self,
@@ -139,7 +134,7 @@ class AuthDialog(Gtk.Dialog):
         self.show_all()
 
 
-class GBaseSource(RB.Source):
+class GooglePlayBaseSource(RB.Source):
     def setup(self):
         shell = self.props.shell
         self.songs_view = RB.EntryView.new(
@@ -232,68 +227,6 @@ class GBaseSource(RB.Source):
             self.top_box.remove(self.auth_box)
         self.load_songs()
 
-    def init_songs(self, songs):
-        shell = self.props.shell
-        art_db = RB.ExtDB(name='album-art')
-        for song in songs.result():
-            try:
-                entry = RB.RhythmDBEntry.new(
-                    shell.props.db, gentry,
-                    getattr(self, 'id', 'gmusic') + '/' + song['id'],
-                )
-                full_title = []
-                art_key = None
-                if 'title' in song:
-                    shell.props.db.entry_set(
-                        entry, RB.RhythmDBPropType.TITLE,
-                        song['title'].encode('utf8'),
-                    )
-                    full_title.append(song['title'])
-                if 'durationMillis' in song:
-                    shell.props.db.entry_set(
-                        entry, RB.RhythmDBPropType.DURATION,
-                        int(song['durationMillis']) / 1000,
-                    )
-                if 'album' in song:
-                    shell.props.db.entry_set(
-                        entry, RB.RhythmDBPropType.ALBUM,
-                        song['album'].encode('utf8'),
-                    )
-                    full_title.append(song['album'])
-                    #ready the album art key
-                    art_key = RB.ExtDBKey.create_storage('album', song['album'])
-                if 'artist' in song:
-                    shell.props.db.entry_set(
-                        entry, RB.RhythmDBPropType.ARTIST,
-                        song['artist'].encode('utf8'),
-                    )
-                    full_title.append(song['artist'])
-                    if art_key: art_key.add_field('artist', song['artist'])
-                if 'trackNumber' in song:
-                    shell.props.db.entry_set(
-                        entry, RB.RhythmDBPropType.TRACK_NUMBER,
-                        int(song['trackNumber']),
-                    )
-                # rhytmbox OR don't work for custom filters
-                shell.props.db.entry_set(
-                    entry, RB.RhythmDBPropType.COMMENT,
-                    ' - '.join(full_title).lower().encode('utf8'),
-                )
-                # rhythmbox segfoalt when new db created from python
-                shell.props.db.entry_set(
-                    entry, RB.RhythmDBPropType.GENRE,
-                    'google-play-music',
-                )
-                self.props.base_query_model.add_entry(entry, -1)
-                #Store the album art url if there's no art already there
-                if art_key:
-                    if not art_db.lookup(art_key) and 'albumArtRef' in song:
-                        art_db.store_uri(art_key, RB.ExtDBSourceType.SEARCH,
-                                         song['albumArtRef'][0]['url'])
-            except TypeError:  # Already in db
-                pass
-        shell.props.db.commit()
-
     def api_login(self):
         if api.is_authenticated():
             return True
@@ -320,14 +253,103 @@ class GBaseSource(RB.Source):
     def do_impl_get_entry_view(self):
         return self.songs_view
 
-    def load_songs(self):
+    def create_entry_from_track_data(self, src_id, id_key, track):
+        shell = self.props.shell
+        db = shell.props.db
+        entry = RB.RhythmDBEntry.new(
+            db, gentry, src_id + '/' + track[id_key],
+            )
+        full_title = []
+        if 'title' in track:
+            db.entry_set(
+                entry, RB.RhythmDBPropType.TITLE,
+                track['title'].encode('utf8'),
+                )
+            full_title.append(track['title'])
+        if 'durationMillis' in track:
+            db.entry_set(
+                entry, RB.RhythmDBPropType.DURATION,
+                int(track['durationMillis']) / 1000,
+                )
+        if 'album' in track:
+            db.entry_set(
+                entry, RB.RhythmDBPropType.ALBUM,
+                track['album'].encode('utf8'),
+                )
+            full_title.append(track['album'])
+        if 'artist' in track:
+            db.entry_set(
+                entry, RB.RhythmDBPropType.ARTIST,
+                track['artist'].encode('utf8'),
+                )
+            full_title.append(track['artist'])
+        if 'trackNumber' in track:
+            db.entry_set(
+                entry, RB.RhythmDBPropType.TRACK_NUMBER,
+                int(track['trackNumber']),
+                )
+        # rhytmbox OR don't work for custom filters
+        db.entry_set(
+            entry, RB.RhythmDBPropType.COMMENT,
+            ' - '.join(full_title).lower().encode('utf8'),
+            )
+        # rhythmbox segfoalt when new db created from python
+        db.entry_set(
+            entry, RB.RhythmDBPropType.GENRE,
+            'google-play-music',
+            )
+        return entry
+
+    def load_songs():
         raise NotImplementedError
 
 
-class GPlaylist(GBaseSource):
-    def setup(self, id):
+class GooglePlayLibrary(GooglePlayBaseSource):
+    def load_songs(self):
+        shell = self.props.shell
+        art_db = RB.ExtDB(name='album-art')
+        self.trackdata = mapi.get_all_songs()
+        for song in self.trackdata:
+            try:
+                entry = self.create_entry_from_track_data(
+                    getattr(self, 'id', 'gmusic'), 'id', song)
+                self.props.base_query_model.add_entry(entry, -1)
+                #Store the album art url if there's no art already there
+                if 'album' in song:
+                    art_key = RB.ExtDBKey.create_storage('album', song['album'])
+                    if 'artist' in song:
+                        art_key.add_field('artist', song['artist'])
+                    if not art_db.lookup(art_key) and 'albumArtRef' in song:
+                        art_db.store_uri(art_key, RB.ExtDBSourceType.SEARCH,
+                                         song['albumArtRef'][0]['url'])
+            except TypeError:  # Already in db
+                pass
+        shell.props.db.commit()
+        self.load_playlists()
+
+    def load_playlists(self):
+        shell = self.props.shell
+        db = shell.props.db
+        theme = Gtk.IconTheme.get_default()
+        what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.SMALL_TOOLBAR)
+        icon = rb.try_load_icon(theme, "playlist", width, 0)
+        self.playlists = mapi.get_all_playlists()
+        for playlist in self.playlists:
+            model = RB.RhythmDBQueryModel.new_empty(db)
+            pl = GObject.new(
+                GooglePlayPlaylist, shell=shell,
+                name=playlist['name'].encode('utf8'),
+                query_model=model, pixbuf=icon
+                )
+            pl.setup(playlist['id'], self.trackdata)
+            shell.append_display_page(pl, self)
+
+
+class GooglePlayPlaylist(GooglePlayBaseSource):
+    def setup(self, id, trackdata):
         self.id = id
-        GBaseSource.setup(self)
+        self.trackdata = trackdata
+        GooglePlayBaseSource.setup(self)
 
     def load_songs(self):
         future = executor.submit(get_playlist_songs, self.id)
@@ -349,65 +371,25 @@ class GPlaylist(GBaseSource):
         self.browser.set_model(query_model, False)
         self.update_view()
 
-    def init_songs(self, songs):
+    def init_songs(self, future):
         shell = self.props.shell
         db = shell.props.db
-        for song in songs.result():
-            src_entry = db.entry_lookup_from_string(
-                'gmusic/' + song['trackId'], False)
-            entry = RB.RhythmDBEntry.new(
-                db, gentry,
-                getattr(self, 'id', '0') + '/' + song['trackId'],
+        for track in future.result():
+            match = next(
+                (td for td in self.trackdata if td['id'] == track['trackId']),
+                None
                 )
-            db.entry_set(
-                entry, RB.RhythmDBPropType.TITLE,
-                src_entry.get_string(RB.RhythmDBPropType.TITLE),
-                )
-            db.entry_set(
-                entry, RB.RhythmDBPropType.DURATION,
-                src_entry.get_ulong(RB.RhythmDBPropType.DURATION),
-                )
-            db.entry_set(
-                entry, RB.RhythmDBPropType.ARTIST,
-                src_entry.get_string(RB.RhythmDBPropType.ARTIST),
-                )
-            db.entry_set(
-                entry, RB.RhythmDBPropType.ALBUM,
-                src_entry.get_string(RB.RhythmDBPropType.ALBUM),
-                )
-            db.entry_set(
-                entry, RB.RhythmDBPropType.COMMENT,
-                src_entry.get_string(RB.RhythmDBPropType.COMMENT)
-                )
-            db.entry_set(
-                entry, RB.RhythmDBPropType.GENRE,
-                'google-play-music-playlist',
-                )
-            self.props.base_query_model.add_entry(entry, -1)
+            if match:
+                entry = self.create_entry_from_track_data(
+                    getattr(self, 'id', '0'), 'id', match
+                    )
+                db.entry_set(
+                    entry, RB.RhythmDBPropType.GENRE,
+                    'google-play-music-playlist',
+                    )
+                self.props.base_query_model.add_entry(entry, -1)
         db.commit()
-
-class GPlaySource(GBaseSource):
-    def init_authenticated(self):
-        GBaseSource.init_authenticated(self)
-        self.playlists = []
-        playlists = mapi.get_all_playlists()
-        shell = self.props.shell
-        db = shell.props.db
-        theme = Gtk.IconTheme.get_default()
-        what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.SMALL_TOOLBAR)
-        icon = rb.try_load_icon(theme, "playlist", width, 0)
-        for playlist in playlists:
-            model = RB.RhythmDBQueryModel.new_empty(db)
-            pl = GObject.new(
-                GPlaylist, shell=shell, name=playlist['name'].encode('utf8'),
-                query_model=model, pixbuf=icon
-                )
-            pl.setup(playlist['id'])
-            shell.append_display_page(pl, self)
-
-    def load_songs(self):
-        future = executor.submit(get_songs)
-        future.add_done_callback(self.init_songs)
+        delattr(self, 'trackdata') #Memory concerns
 
 
-GObject.type_register(GPlaySource)
+GObject.type_register(GooglePlayLibrary)

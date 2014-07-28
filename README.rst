@@ -32,7 +32,7 @@ Then add the PPA as described above (if you haven't already) and run::
 
     sudo apt-get update
     sudo apt-get remove rhythmbox
-    sudo apt-get install rhythmbox =2.99.1-0ubuntu1
+    sudo apt-get install rhythmbox=2.99.1-0ubuntu1
 
 
 Ubuntu Installation via PIP

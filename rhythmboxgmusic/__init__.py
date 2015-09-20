@@ -5,7 +5,6 @@ from gmusicapi import Webclient as Api
 from gmusicapi import Mobileclient as Mapi
 from gettext import lgettext as _
 import gettext
-import rb
 import json
 import os.path
 import logging
@@ -76,7 +75,7 @@ class GooglePlayMusic(GObject.Object, Peas.Activatable):
         model = RB.RhythmDBQueryModel.new_empty(db)
         theme = Gtk.IconTheme.get_default()
         what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.LARGE_TOOLBAR)
-        icon = rb.try_load_icon(theme, "media-playback-start", width, 0)
+        icon = RB.try_load_icon(theme, "media-playback-start", width, 0)
         self.source = GObject.new(
             GooglePlayLibrary, shell=shell,
             name="Google Play Music",

@@ -154,18 +154,13 @@ class GooglePlayBaseSource(RB.Source):
         if self.mapi_login():
             self.init_authenticated()
         else:
-            label = Gtk.Label(
-                _("This plugin requires you to authenticate to Google Play"),
-            )
-            auth_btn = Gtk.Button(_("Click here to login"))
+            infobar = Gtk.InfoBar()
+            self.top_box.pack_start(infobar, True, True, 0)
+            infobar.set_message_type(Gtk.MessageType.INFO)
+            auth_btn = infobar.add_button(_("Click here to login"), 1)
             auth_btn.connect('clicked', self.auth)
-            hbox = Gtk.HBox()
-            hbox.add(label)
-            hbox.add(auth_btn)
-            hbox.set_size_request(100, 30)
-            self.top_box.pack_start(hbox, False, False, 0)
-            self.auth_box = hbox
-
+            label = Gtk.Label(_("This plugin requires you to authenticate to Google Play"))
+            infobar.get_content_area().add(label)
         self.browser = RB.LibraryBrowser.new(shell.props.db, gentry)
         self.browser.set_model(self.props.base_query_model, False)
         self.browser.connect("notify::output-model", self.update_view)

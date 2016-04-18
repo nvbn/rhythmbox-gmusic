@@ -49,8 +49,8 @@ Fedora Installation via PIP
 
 From the shell::
 
-    sudo yum install python-pip git
-    sudo pip-python install git+https://github.com/nvbn/rhythmbox-gmusic.git#egg=rhythmbox-gmusic
+    sudo dnf install python-pip git
+    sudo pip install git+https://github.com/nvbn/rhythmbox-gmusic.git#egg=rhythmbox-gmusic
 
 
 Developers

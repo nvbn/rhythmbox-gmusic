@@ -49,7 +49,7 @@ Fedora Installation via PIP
 
 From the shell::
 
-    sudo dnf install python-pip git
+    sudo dnf install python-pip git python-cffi python-cryptography
     sudo pip install git+https://github.com/nvbn/rhythmbox-gmusic.git#egg=rhythmbox-gmusic
 
 

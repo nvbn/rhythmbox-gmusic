@@ -1,5 +1,5 @@
 [Plugin]
-Loader=python
+Loader=python3
 Module=rhythmboxgmusic
 Depends=rb
 IAge=2

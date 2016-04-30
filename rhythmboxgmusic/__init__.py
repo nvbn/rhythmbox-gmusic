@@ -1,29 +1,18 @@
-from gi.repository import (GObject, Peas, Gtk, GConf, RB, GLib,
-                           GnomeKeyring, GdkPixbuf)
+from gi.repository import GdkPixbuf, Gio, GLib, GnomeKeyring, Gtk, GObject, Peas
+from gi.repository import RB
+
 from concurrent import futures
-from gmusicapi import Webclient as Api
 from gmusicapi import Mobileclient as Mapi
 from gettext import lgettext as _
 import gettext
 import json
-import os.path
-import logging
 
-logging.basicConfig() #Output useful errors in ThreadPoolExecutors
 gettext.bindtextdomain("rhythmbox-gmusic", "/usr/share/locale")
 gettext.textdomain("rhythmbox-gmusic")
 
-try:
-    # for older version
-    api = Api(debug_logging=False,verify_ssl=False)
-    mapi = Mapi(debug_logging=False,verify_ssl=False)
-except TypeError:
-    # for newer version
-    api = Api()
-    mapi = Mapi()
+mapi = Mapi(False)
 
 executor = futures.ThreadPoolExecutor(max_workers=1)
-settings = GConf.Client.get_default()
 
 APP_KEY = 'rhythmbox-gmusic'
 result, KEYRING = GnomeKeyring.get_default_keyring_sync()
@@ -73,15 +62,12 @@ class GooglePlayMusic(GObject.Object, Peas.Activatable):
         shell = self.object
         db = shell.props.db
         model = RB.RhythmDBQueryModel.new_empty(db)
-        theme = Gtk.IconTheme.get_default()
-        what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.LARGE_TOOLBAR)
-        icon = RB.try_load_icon(theme, "media-playback-start", width, 0)
         self.source = GObject.new(
             GooglePlayLibrary, shell=shell,
             name="Google Play Music",
             query_model=model,
             plugin=self,
-            pixbuf=icon,
+            icon=Gio.ThemedIcon.new("media-playback-start-symbolic"),
         )
         self.source.setup()
         group = RB.DisplayPageGroup.get_by_id("library")
@@ -98,7 +84,7 @@ class GEntry(RB.RhythmDBEntryType):
 
     def do_get_playback_uri(self, entry):
         id = entry.dup_string(RB.RhythmDBPropType.LOCATION).split('/')[1]
-        return api.get_stream_urls(id)[0]
+        return mapi.get_stream_url(id)
 
     def do_can_sync_metadata(self, entry):
         return True
@@ -165,21 +151,16 @@ class GooglePlayBaseSource(RB.Source):
         )
         self.vbox = Gtk.Paned.new(Gtk.Orientation.VERTICAL)
         self.top_box = Gtk.VBox()
-        if self.api_login() and self.mapi_login():
+        if self.mapi_login():
             self.init_authenticated()
         else:
-            label = Gtk.Label(
-                _("This plugin requires you to authenticate to Google Play"),
-            )
-            auth_btn = Gtk.Button(_("Click here to login"))
+            infobar = Gtk.InfoBar()
+            self.top_box.pack_start(infobar, True, True, 0)
+            infobar.set_message_type(Gtk.MessageType.INFO)
+            auth_btn = infobar.add_button(_("Click here to login"), 1)
             auth_btn.connect('clicked', self.auth)
-            hbox = Gtk.HBox()
-            hbox.add(label)
-            hbox.add(auth_btn)
-            hbox.set_size_request(100, 30)
-            self.top_box.pack_start(hbox, False, False, 0)
-            self.auth_box = hbox
-
+            label = Gtk.Label(_("This plugin requires you to authenticate to Google Play"))
+            infobar.get_content_area().add(label)
         self.browser = RB.LibraryBrowser.new(shell.props.db, gentry)
         self.browser.set_model(self.props.base_query_model, False)
         self.browser.connect("notify::output-model", self.update_view)
@@ -207,7 +188,7 @@ class GooglePlayBaseSource(RB.Source):
         query = GLib.PtrArray()
         db.query_append_params(
             query, RB.RhythmDBQueryType.FUZZY_MATCH,
-            RB.RhythmDBPropType.COMMENT, text.lower().encode('utf8'),
+            RB.RhythmDBPropType.COMMENT, text.lower(),
         )
         db.query_append_params(
             query, RB.RhythmDBQueryType.EQUALS,
@@ -226,17 +207,11 @@ class GooglePlayBaseSource(RB.Source):
             self.top_box.remove(self.auth_box)
         self.load_songs()
 
-    def api_login(self):
-        if api.is_authenticated():
-            return True
-        login, password = get_credentials()
-        return api.login(login, password)
-
     def mapi_login(self):
         if mapi.is_authenticated():
             return True
         login, password = get_credentials()
-        return mapi.login(login, password)
+        return mapi.login(login, password, Mapi.FROM_MAC_ADDRESS)
 
     def auth(self, widget):
         dialog = AuthDialog()
@@ -245,7 +220,7 @@ class GooglePlayBaseSource(RB.Source):
             login = dialog.login_input.get_text()
             password = dialog.password_input.get_text()
             set_credentials(login, password)
-            if self.api_login() and self.mapi_login():
+            if self.mapi_login():
                 self.init_authenticated()
         dialog.destroy()
 
@@ -262,7 +237,7 @@ class GooglePlayBaseSource(RB.Source):
         if 'title' in track:
             db.entry_set(
                 entry, RB.RhythmDBPropType.TITLE,
-                track['title'].encode('utf8'),
+                track['title']
                 )
             full_title.append(track['title'])
         if 'durationMillis' in track:
@@ -273,13 +248,13 @@ class GooglePlayBaseSource(RB.Source):
         if 'album' in track:
             db.entry_set(
                 entry, RB.RhythmDBPropType.ALBUM,
-                track['album'].encode('utf8'),
+                track['album'],
                 )
             full_title.append(track['album'])
         if 'artist' in track:
             db.entry_set(
                 entry, RB.RhythmDBPropType.ARTIST,
-                track['artist'].encode('utf8'),
+                track['artist'],
                 )
             full_title.append(track['artist'])
         if 'trackNumber' in track:
@@ -287,10 +262,15 @@ class GooglePlayBaseSource(RB.Source):
                 entry, RB.RhythmDBPropType.TRACK_NUMBER,
                 int(track['trackNumber']),
                 )
+        if 'albumArtRef' in track:
+            db.entry_set(
+                entry, RB.RhythmDBPropType.MB_ALBUMID,
+                track['albumArtRef'][0]['url'],
+                )
         # rhytmbox OR don't work for custom filters
         db.entry_set(
             entry, RB.RhythmDBPropType.COMMENT,
-            ' - '.join(full_title).lower().encode('utf8'),
+            ' - '.join(full_title).lower(),
             )
         # rhythmbox segfoalt when new db created from python
         db.entry_set(
@@ -306,21 +286,12 @@ class GooglePlayBaseSource(RB.Source):
 class GooglePlayLibrary(GooglePlayBaseSource):
     def load_songs(self):
         shell = self.props.shell
-        art_db = RB.ExtDB(name='album-art')
         self.trackdata = mapi.get_all_songs()
         for song in self.trackdata:
             try:
                 entry = self.create_entry_from_track_data(
                     getattr(self, 'id', 'gmusic'), 'id', song)
                 self.props.base_query_model.add_entry(entry, -1)
-                #Store the album art url if there's no art already there
-                if 'album' in song:
-                    art_key = RB.ExtDBKey.create_storage('album', song['album'])
-                    if 'artist' in song:
-                        art_key.add_field('artist', song['artist'])
-                    if not art_db.lookup(art_key) and 'albumArtRef' in song:
-                        art_db.store_uri(art_key, RB.ExtDBSourceType.SEARCH,
-                                         song['albumArtRef'][0]['url'])
             except TypeError:  # Already in db
                 pass
         shell.props.db.commit()
@@ -329,16 +300,14 @@ class GooglePlayLibrary(GooglePlayBaseSource):
     def load_playlists(self):
         shell = self.props.shell
         db = shell.props.db
-        theme = Gtk.IconTheme.get_default()
-        what, width, height = Gtk.icon_size_lookup(Gtk.IconSize.SMALL_TOOLBAR)
-        icon = rb.try_load_icon(theme, "playlist", width, 0)
         self.playlists = mapi.get_all_playlists()
         for playlist in self.playlists:
             model = RB.RhythmDBQueryModel.new_empty(db)
             pl = GObject.new(
                 GooglePlayPlaylist, shell=shell,
-                name=playlist['name'].encode('utf8'),
-                query_model=model, pixbuf=icon
+                name=playlist['name'],
+                query_model=model,
+                icon=Gio.ThemedIcon.new("playlist")
                 )
             pl.setup(playlist['id'], self.trackdata)
             shell.append_display_page(pl, self)
@@ -360,7 +329,7 @@ class GooglePlayPlaylist(GooglePlayBaseSource):
         query = GLib.PtrArray()
         db.query_append_params(
             query, RB.RhythmDBQueryType.FUZZY_MATCH,
-            RB.RhythmDBPropType.COMMENT, text.lower().encode('utf8'),
+            RB.RhythmDBPropType.COMMENT, text.lower(),
         )
         db.query_append_params(
             query, RB.RhythmDBQueryType.EQUALS,
